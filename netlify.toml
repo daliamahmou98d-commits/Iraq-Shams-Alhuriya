@@ -1,0 +1,18 @@
+# بوابة منتدى عراق شمس الحرية — موقع ثابت فقط: لا دوال ولا قواعد بيانات ولا حفظ
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/Images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
