@@ -380,7 +380,8 @@ body.leaving .stage { transition: transform 1.2s var(--ease), opacity 1.2s; tran
     return new Promise((res) => {
       const cb = "__gw" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
       const s = document.createElement("script"); let done = false;
-      const fin = (v) => { if (done) return; done = true; try { delete window[cb]; } catch { window[cb] = undefined; } s.remove(); res(v); };
+      let timeout;
+      const fin = (v) => { if (done) return; done = true; clearTimeout(timeout); try { delete window[cb]; } catch { window[cb] = undefined; } s.remove(); res(v); };
       window[cb] = (o) => {
         try {
           if (!o || o.status === "error") return fin(null);
@@ -388,26 +389,15 @@ body.leaving .stage { transition: transform 1.2s var(--ease), opacity 1.2s; tran
           fin(vals.map(valid).find(Boolean) || null);
         } catch { fin(null); }
       };
-      s.onerror = () => fin(null); setTimeout(() => fin(null), 15000);
+      s.onerror = () => fin(null); timeout = setTimeout(() => fin(null), 15000);
       s.src = `https://docs.google.com/spreadsheets/d/${SRC.id}/gviz/tq?gid=${SRC.gid}&range=${SRC.cell}&headers=0&tqx=out:json;responseHandler:${cb}&_=${Date.now()}`;
       document.head.append(s);
     });
   }
-  // هل المنتدى يستجيب فعلًا؟ (الكمبيوتر قد يكون مطفأً والرابط قديمًا)
-  async function alive(url) {
-    for (let i = 0; i < 2; i++) {
-      try {
-        const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 9000);
-        const r = await fetch(new URL("assets/version.json", url).href + "?t=" + Date.now(), { cache: "no-store", signal: ctl.signal });
-        clearTimeout(t);
-        if (r.ok) return true;
-      } catch { /* */ }
-    }
-    return false;
-  }
+  // GitHub Pages موقع ثابت: لا تفحص Cloudflare عبر fetch لأن CORS قد يمنع قراءة الاستجابة.
+  // المصدر الوحيد للرابط هو الخلية A2، ويُفتح عنوانها كما هو عند الضغط على الدخول.
   async function fetchLink() {
-    const url = await readCell();
-    return url && (await alive(url)) ? url : null;
+    return await readCell();
   }
 
   function setState(st) {
@@ -468,13 +458,16 @@ body.leaving .stage { transition: transform 1.2s var(--ease), opacity 1.2s; tran
       const rip = document.createElement("span"); const s = Math.max(r.width, r.height) * 2.2;
       rip.className = "ripple"; rip.style.cssText = `width:${s}px;height:${s}px;left:${(e.clientX || r.left + r.width / 2) - r.left - s / 2}px;top:${(e.clientY || r.top + r.height / 2) - r.top - s / 2}px`;
       b.append(rip); setTimeout(() => rip.remove(), 900);
-      let url = S.url;
-      if (!url || Date.now() - S.at > 20000) {
-        b.disabled = true; $("enterLbl").textContent = "جارٍ فتح المنتدى…";
-        url = await check(false);
-        if (!url) return;
+      b.disabled = true;
+      $("enterLbl").textContent = "جارٍ قراءة الرابط من Google Sheets…";
+      const url = await readCell();
+      if (!url) {
         b.disabled = false;
+        $("enterLbl").textContent = "الدخول إلى المنتدى";
+        $("state").textContent = "تعذرت قراءة الخلية A2؛ تحقق من صلاحية مشاركة الجدول ثم حاول مجددًا";
+        return;
       }
+      S.url = url; S.at = Date.now();
       go(url, e.clientX || r.left + r.width / 2, e.clientY || r.top + r.height / 2);
     });
   }
